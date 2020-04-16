@@ -13,7 +13,8 @@ import java.nio.file.StandardOpenOption;
 import java.util.EnumSet;
 
 public class MsgInBound extends SimpleChannelInboundHandler<Msg> {
-    private static final String filePath = "D:/netty/receive";
+    //    private static final String filePath = "D:/netty/receive";
+    private static final String filePath = "/Users/ljl/Documents/netty/receive";
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, Msg msg) throws Exception {
@@ -28,17 +29,16 @@ public class MsgInBound extends SimpleChannelInboundHandler<Msg> {
             file.createNewFile();
             ctx.writeAndFlush(msg);
         } else {
-            try (FileChannel fileChannel = (FileChannel.open(Paths.get(file.getAbsolutePath()),
-                    EnumSet.of(StandardOpenOption.WRITE)))) {
-                fileChannel.position(msg.getPosition());
-                fileChannel.write(ByteBuffer.wrap(msg.getFileByte()));
-                fileChannel.force(true);
-                msg.setPosition(fileChannel.position());
+            try (FileChannel fileChannel = (FileChannel.open(file.toPath(),
+                    StandardOpenOption.WRITE,StandardOpenOption.APPEND))) {
+                ByteBuffer wrap = ByteBuffer.wrap(msg.getFileByte());
+//                wrap.flip();
+                fileChannel.write(wrap, msg.getPosition());
+                msg.setPosition(msg.getPosition() + 10240L);
                 ctx.writeAndFlush(msg);
             } catch (Exception e) {
                 e.printStackTrace();
             }
         }
     }
-
 }
