@@ -1,50 +1,80 @@
 package com.file.client.bound;
 
-import com.file.modal.Msg;
-import io.netty.buffer.ByteBuf;
+import com.alibaba.fastjson.JSON;
+import com.file.global.Constant;
+import com.file.global.UploadSignal;
+import com.file.modal.FileMsg;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelOutboundHandlerAdapter;
-import io.netty.channel.ChannelPromise;
 import io.netty.channel.SimpleChannelInboundHandler;
-import io.netty.channel.unix.Buffer;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.file.Paths;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.StandardOpenOption;
-import java.util.EnumSet;
 
-public class MsgOutBound extends SimpleChannelInboundHandler<Msg> {
-    //    private static final String filePath = "D:/netty/send";
-    private static final String filePath = "/Users/ljl/Documents/netty/send";
-
+public class MsgOutBound extends SimpleChannelInboundHandler<FileMsg> {
     @Override
-    protected void channelRead0(ChannelHandlerContext ctx, Msg msg) throws Exception {
-//        Msg msg = (Msg) obj;
-        Long position = 0L;
-        if (msg.getPosition() != 0L) {
-            position = msg.getPosition();
+    protected void channelRead0(ChannelHandlerContext ctx, FileMsg fileMsg) throws Exception {
+        File file = new File(Constant.fileSendPath, fileMsg.getFileName());
+        if (file.exists()) {
+            switch (fileMsg.getUploadSignal()) {
+                case GENERAL:
+                    File tmpFile = new File(file.getParent(), fileMsg.getFileName() + Constant.TMP_SUFFIX);
+                    createTmpFile(tmpFile, fileMsg);
+                    uploadFile(fileMsg, ctx, file);
+                    break;
+                case CONTINUE:
+                    uploadFile(fileMsg, ctx, file);
+                    break;
+                case CONFIRM:
+                    System.out.println(System.currentTimeMillis() - fileMsg.getUploadDate());
+                    ctx.close();
+                    break;
+                case STOP:
+                    fileMsg.setFileByte(null);
+                    fileMsg.setUploadSignal(UploadSignal.FINISH);
+                    ctx.writeAndFlush(fileMsg);
+                    break;
+                default:
+                    break;
+            }
         }
-        File file = new File(filePath, msg.getFileName());
+    }
+
+    private void uploadFile(FileMsg fileMsg, ChannelHandlerContext ctx, File file) throws IOException {
         try (FileChannel fileChannel = (FileChannel.open(file.toPath(),
                 StandardOpenOption.READ))) {
-            Long size = 10240L;
-            if ((position + size) >= fileChannel.size()) {
-                size = fileChannel.size() - position;
-                msg.setFinish(true);
+            fileMsg.setUploadSignal(UploadSignal.UPLOAD);
+            if ((fileMsg.getPosition() + fileMsg.getPreSize()) >= fileChannel.size()) {
+                fileMsg.setPreSize(fileChannel.size() - fileMsg.getPosition());
+                fileMsg.setUploadSignal(UploadSignal.FINISH);
             }
-            MappedByteBuffer map = fileChannel.map(FileChannel.MapMode.READ_ONLY, position, size).load();
+            MappedByteBuffer map = fileChannel.map(FileChannel.MapMode.READ_ONLY, fileMsg.getPosition(), fileMsg.getPreSize()).load();
             map.asReadOnlyBuffer().flip();
             byte[] arr = new byte[map.asReadOnlyBuffer().remaining()];
             map.asReadOnlyBuffer().get(arr);
-            msg.setFileByte(arr);
-            ctx.pipeline().writeAndFlush(msg);
-            System.out.println("Client Info:" + msg.toString());
+            fileMsg.setFileByte(arr);
+            ctx.pipeline().writeAndFlush(fileMsg);
+            System.out.println("Client Info:" + fileMsg.toString());
             map.clear();
-        } catch (Exception e) {
+        }
+    }
+
+    private boolean createTmpFile(File tmpFile, FileMsg fileMsg) {
+        try (FileChannel fileChannel = (FileChannel.open(tmpFile.toPath(),
+                StandardOpenOption.WRITE, StandardOpenOption.CREATE))) {
+            byte[] bytes = JSON.toJSONString(fileMsg).getBytes(StandardCharsets.UTF_8);
+            ByteBuffer byteBuffer = ByteBuffer.allocate(bytes.length);
+            byteBuffer.put(bytes);
+            byteBuffer.flip();
+            fileChannel.write(byteBuffer);
+            return true;
+        } catch (IOException e) {
             e.printStackTrace();
+            return false;
         }
     }
 }
