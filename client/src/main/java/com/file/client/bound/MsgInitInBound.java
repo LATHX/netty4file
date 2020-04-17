@@ -10,15 +10,13 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.StandardOpenOption;
 
 public class MsgInitInBound extends ChannelInboundHandlerAdapter {
-    private String filename = "CentOS-7-x86_64-DVD-1810.iso";
+    private String filename = "123.pdf";
 
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {

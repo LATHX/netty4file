@@ -68,6 +68,11 @@ public class MsgInBound extends SimpleChannelInboundHandler<FileMsg> {
                     fileMsg.setFileByte(null);
                     fileMsg.setUploadSignal(UploadSignal.CONTINUE);
                 }
+            }else{
+                files.createNewFile();
+                fileMsg.setPosition(0L);
+                fileMsg.setFileByte(null);
+                fileMsg.setUploadSignal(UploadSignal.CONTINUE);
             }
         } else {
             File files = new File(Constant.fileReceivePath, fileMsg.getAliasName());
@@ -78,6 +83,11 @@ public class MsgInBound extends SimpleChannelInboundHandler<FileMsg> {
                     fileMsg.setFileByte(null);
                     fileMsg.setUploadSignal(UploadSignal.CONTINUE);
                 }
+            }else{
+                files.createNewFile();
+                fileMsg.setPosition(0L);
+                fileMsg.setFileByte(null);
+                fileMsg.setUploadSignal(UploadSignal.CONTINUE);
             }
         }
     }

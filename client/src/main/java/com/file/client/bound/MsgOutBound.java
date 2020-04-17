@@ -31,6 +31,10 @@ public class MsgOutBound extends SimpleChannelInboundHandler<FileMsg> {
                     break;
                 case CONFIRM:
                     System.out.println(System.currentTimeMillis() - fileMsg.getUploadDate());
+                    File tmpFileConfirm = new File(file.getParent(), fileMsg.getFileName() + Constant.TMP_SUFFIX);
+                    if(tmpFileConfirm.exists()){
+                        tmpFileConfirm.delete();
+                    }
                     ctx.close();
                     break;
                 case STOP:
