@@ -16,7 +16,7 @@ import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.StandardOpenOption;
 
-public class MsgOutBound extends SimpleChannelInboundHandler<FileMsg> {
+public class MsgSendFileBound extends SimpleChannelInboundHandler<FileMsg> {
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, FileMsg fileMsg) throws Exception {
         File file = new File(Constant.fileSendPath, fileMsg.getFileName());
