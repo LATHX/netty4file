@@ -1,7 +1,7 @@
 package com.file.client;
 
 import com.file.client.bound.MsgInitInBound;
-import com.file.client.bound.MsgOutBound;
+import com.file.client.bound.MsgSendFileBound;
 import com.file.code.MarshallingCodeCFactory;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.ChannelFuture;
@@ -22,7 +22,7 @@ public class clientMain {
                             socketChannel.pipeline().addLast(MarshallingCodeCFactory.buildMarshallingDecoder());
                             socketChannel.pipeline().addLast(MarshallingCodeCFactory.buildMarshallingEncoder());
                             socketChannel.pipeline().addLast(new MsgInitInBound());
-                            socketChannel.pipeline().addLast(new MsgOutBound());
+                            socketChannel.pipeline().addLast(new MsgSendFileBound());
                         }
                     });
             ChannelFuture future = bootstrap.connect("127.0.0.1", 8765).sync();//绑定端口
