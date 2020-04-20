@@ -6,6 +6,7 @@ import com.file.global.UploadSignal;
 import com.file.modal.FileMsg;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.util.ReferenceCountUtil;
 
 import java.io.File;
 import java.io.IOException;
@@ -75,6 +76,7 @@ public class MsgOutBound extends SimpleChannelInboundHandler<FileMsg> {
             byteBuffer.put(bytes);
             byteBuffer.flip();
             fileChannel.write(byteBuffer);
+            ReferenceCountUtil.release(byteBuffer);
             return true;
         } catch (IOException e) {
             e.printStackTrace();
