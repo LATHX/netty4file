@@ -21,11 +21,11 @@ public class clientMain {
                         protected void initChannel(SocketChannel socketChannel) throws Exception {
                             socketChannel.pipeline().addLast(MarshallingCodeCFactory.buildMarshallingDecoder());
                             socketChannel.pipeline().addLast(MarshallingCodeCFactory.buildMarshallingEncoder());
-                            socketChannel.pipeline().addLast(new MsgInitInBound());
+//                            socketChannel.pipeline().addLast(new MsgInitInBound());
                             socketChannel.pipeline().addLast(new MsgSendFileBound());
                         }
                     });
-            ChannelFuture future = bootstrap.connect("127.0.0.1", 8765).sync();//绑定端口
+            ChannelFuture future = bootstrap.connect("localhost", 8765).sync();//绑定端口
             future.channel().closeFuture().sync();//等待关闭(程序阻塞在这里等待客户端请求)
         } catch (InterruptedException e) {
             e.printStackTrace();

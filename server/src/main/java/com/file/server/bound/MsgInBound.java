@@ -4,6 +4,7 @@ import com.file.global.Constant;
 import com.file.global.UploadSignal;
 import com.file.modal.FileMsg;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.SimpleChannelInboundHandler;
 
 import java.io.File;
@@ -14,39 +15,61 @@ import java.nio.file.StandardOpenOption;
 import java.util.UUID;
 import java.util.concurrent.*;
 
-public class MsgInBound extends SimpleChannelInboundHandler<FileMsg> {
+public class MsgInBound extends ChannelInboundHandlerAdapter {
     private static final ExecutorService executor = new ThreadPoolExecutor(2, 2, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<Runnable>(100000), new ThreadPoolExecutor.AbortPolicy());
+    private FileChannel fileChannel;
 
     @Override
-    protected void channelRead0(ChannelHandlerContext ctx, FileMsg fileMsg) throws Exception {
-        switch (fileMsg.getUploadSignal()) {
-            case CREATE:
-                String endPoint = "";
-                if (fileMsg.getFileName().lastIndexOf(".") != -1) {
-                    endPoint = fileMsg.getFileName().substring(fileMsg.getFileName().lastIndexOf("."));
-                }
-                fileMsg.setAliasName(UUID.randomUUID().toString().replaceAll("-", "") + endPoint);
-                boolean newFile = new File(Constant.fileReceivePath, fileMsg.getAliasName()).createNewFile();
-                if (newFile) {
-                    fileMsg.setUploadSignal(UploadSignal.GENERAL);
-                } else {
-                    fileMsg.setUploadSignal(UploadSignal.STOP);
-                }
-                ctx.writeAndFlush(fileMsg);
-                break;
-            case UPLOAD:
-                writeFile(ctx, fileMsg, UploadSignal.CONTINUE);
-                break;
-            case FINISH:
-                writeFile(ctx, fileMsg, UploadSignal.CONFIRM);
-                break;
-            case CONTINUE:
-                writeFile(ctx, fileMsg, UploadSignal.CONTINUE);
-                break;
-            default:
-                break;
+    public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+        if (msg instanceof FileMsg) {
+            FileMsg fileMsg = (FileMsg) msg;
+            switch (fileMsg.getUploadSignal()) {
+                case CREATE:
+                    String endPoint = "";
+                    if (fileMsg.getFileName().lastIndexOf(".") != -1) {
+                        endPoint = fileMsg.getFileName().substring(fileMsg.getFileName().lastIndexOf("."));
+                    }
+                    fileMsg.setAliasName(UUID.randomUUID().toString().replaceAll("-", "") + endPoint);
+                    File createFile = new File(Constant.fileReceivePath, fileMsg.getAliasName());
+                    boolean newFile = createFile.createNewFile();
+                    if (newFile) {
+                        fileMsg.setUploadSignal(UploadSignal.GENERAL);
+                        this.fileChannel = (FileChannel.open(createFile.toPath(),
+                                StandardOpenOption.WRITE, StandardOpenOption.APPEND));
+                    } else {
+                        fileMsg.setUploadSignal(UploadSignal.STOP);
+                    }
+                    ctx.writeAndFlush(fileMsg);
+                    break;
+                case UPLOAD:
+                    writeFile(ctx, fileMsg, UploadSignal.CONTINUE);
+                    break;
+                case FINISH:
+                    writeFile(ctx, fileMsg, UploadSignal.CONFIRM);
+                    break;
+                case CONTINUE:
+                    if (fileChannel == null) {
+                        File files = new File(Constant.fileReceivePath, fileMsg.getAliasName());
+                        if (files.exists()) {
+                            this.fileChannel = (FileChannel.open(files.toPath(),
+                                    StandardOpenOption.WRITE, StandardOpenOption.APPEND, StandardOpenOption.READ));
+                        } else {
+                            files.createNewFile();
+                            fileMsg.setPosition(0L);
+                            fileMsg.setFileByte(null);
+                            fileMsg.setUploadSignal(UploadSignal.CONTINUE);
+                            ctx.writeAndFlush(fileMsg);
+                            break;
+                        }
+                    }
+                    writeFile(ctx, fileMsg, UploadSignal.CONTINUE);
+                    break;
+                default:
+                    break;
+            }
         }
     }
+
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
@@ -63,42 +86,19 @@ public class MsgInBound extends SimpleChannelInboundHandler<FileMsg> {
             executor.submit(() -> {
                 try {
                     if (fileMsg.getFileByte() != null) {
-                        File files = new File(Constant.fileReceivePath, fileMsg.getAliasName());
-                        if (files.exists()) {
-                            try (FileChannel fileChannel = (FileChannel.open(files.toPath(),
-                                    StandardOpenOption.WRITE, StandardOpenOption.APPEND))) {
-                                ByteBuffer wrap = ByteBuffer.wrap(fileMsg.getFileByte());
-//                wrap.flip();
-                                fileChannel.write(wrap, fileMsg.getPosition());
-                                fileMsg.setPosition(fileMsg.getPosition() + fileMsg.getPreSize());
-                                fileMsg.setFileByte(null);
-                                fileMsg.setUploadSignal(signal);
-                                ctx.writeAndFlush(fileMsg);
-                            }
-                        } else {
-                            files.createNewFile();
-                            fileMsg.setPosition(0L);
-                            fileMsg.setFileByte(null);
-                            fileMsg.setUploadSignal(signal);
-                            ctx.writeAndFlush(fileMsg);
-                        }
+                        ByteBuffer wrap = ByteBuffer.wrap(fileMsg.getFileByte());
+                        fileChannel.write(wrap, fileMsg.getPosition());
+                        fileChannel.force(true);
+                        fileMsg.setPosition(fileMsg.getPosition() + fileMsg.getPreSize());
+                        fileMsg.setFileByte(null);
+                        fileMsg.setUploadSignal(signal);
+                        ctx.writeAndFlush(fileMsg);
                     } else {
-                        File files = new File(Constant.fileReceivePath, fileMsg.getAliasName());
-                        if (files.exists()) {
-                            try (FileChannel fileChannel = (FileChannel.open(files.toPath(),
-                                    StandardOpenOption.READ))) {
-                                fileMsg.setPosition(fileChannel.size());
-                                fileMsg.setFileByte(null);
-                                fileMsg.setUploadSignal(signal);
-                                ctx.writeAndFlush(fileMsg);
-                            }
-                        } else {
-                            files.createNewFile();
-                            fileMsg.setPosition(0L);
-                            fileMsg.setFileByte(null);
-                            fileMsg.setUploadSignal(signal);
-                            ctx.writeAndFlush(fileMsg);
-                        }
+                        fileMsg.setPosition(fileChannel.size());
+                        fileMsg.setFileByte(null);
+                        fileMsg.setUploadSignal(signal);
+                        ctx.writeAndFlush(fileMsg);
+
                     }
                 } catch (Exception e) {
                     fileMsg.setUploadSignal(UploadSignal.STOP);
