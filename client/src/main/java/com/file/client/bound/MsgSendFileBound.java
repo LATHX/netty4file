@@ -87,6 +87,13 @@ public class MsgSendFileBound extends ChannelInboundHandlerAdapter {
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         this.fileChannel.close();
+        ctx.close();
+    }
+
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+        cause.printStackTrace();
+        ctx.close();
     }
 
     private void uploadFile(FileMsg fileMsg, ChannelHandlerContext ctx, File file) throws IOException {

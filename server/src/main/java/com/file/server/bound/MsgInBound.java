@@ -73,11 +73,13 @@ public class MsgInBound extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+        this.fileChannel.close();
         ctx.pipeline().close();
     }
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+        this.fileChannel.close();
         super.exceptionCaught(ctx, cause);
     }
 
