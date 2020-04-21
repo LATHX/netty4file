@@ -63,7 +63,6 @@ public class MsgSendFileBound extends SimpleChannelInboundHandler<FileMsg> {
             map.asReadOnlyBuffer().get(arr);
             fileMsg.setFileByte(arr);
             ctx.pipeline().writeAndFlush(fileMsg);
-            System.out.println("Client Info:" + fileMsg.toString());
             map.clear();
         }
     }

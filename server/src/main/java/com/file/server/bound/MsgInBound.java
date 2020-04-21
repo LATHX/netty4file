@@ -12,8 +12,10 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.StandardOpenOption;
 import java.util.UUID;
+import java.util.concurrent.*;
 
 public class MsgInBound extends SimpleChannelInboundHandler<FileMsg> {
+    private static final ExecutorService executor = new ThreadPoolExecutor(2, 2, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<Runnable>(100000), new ThreadPoolExecutor.AbortPolicy());
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, FileMsg fileMsg) throws Exception {
@@ -33,17 +35,13 @@ public class MsgInBound extends SimpleChannelInboundHandler<FileMsg> {
                 ctx.writeAndFlush(fileMsg);
                 break;
             case UPLOAD:
-                writeFile(fileMsg);
-                ctx.writeAndFlush(fileMsg);
+                writeFile(ctx, fileMsg, UploadSignal.CONTINUE);
                 break;
             case FINISH:
-                writeFile(fileMsg);
-                fileMsg.setUploadSignal(UploadSignal.CONFIRM);
-                ctx.writeAndFlush(fileMsg);
+                writeFile(ctx, fileMsg, UploadSignal.CONFIRM);
                 break;
             case CONTINUE:
-                writeFile(fileMsg);
-                ctx.writeAndFlush(fileMsg);
+                writeFile(ctx, fileMsg, UploadSignal.CONTINUE);
                 break;
             default:
                 break;
@@ -55,40 +53,59 @@ public class MsgInBound extends SimpleChannelInboundHandler<FileMsg> {
         ctx.pipeline().close();
     }
 
-    private void writeFile(FileMsg fileMsg) throws IOException {
-        if (fileMsg.getFileByte() != null) {
-            File files = new File(Constant.fileReceivePath, fileMsg.getAliasName());
-            if (files.exists()) {
-                try (FileChannel fileChannel = (FileChannel.open(files.toPath(),
-                        StandardOpenOption.WRITE, StandardOpenOption.APPEND))) {
-                    ByteBuffer wrap = ByteBuffer.wrap(fileMsg.getFileByte());
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+        super.exceptionCaught(ctx, cause);
+    }
+
+    private void writeFile(ChannelHandlerContext ctx, FileMsg fileMsg, UploadSignal signal) throws IOException {
+        try {
+            executor.submit(() -> {
+                try {
+                    if (fileMsg.getFileByte() != null) {
+                        File files = new File(Constant.fileReceivePath, fileMsg.getAliasName());
+                        if (files.exists()) {
+                            try (FileChannel fileChannel = (FileChannel.open(files.toPath(),
+                                    StandardOpenOption.WRITE, StandardOpenOption.APPEND))) {
+                                ByteBuffer wrap = ByteBuffer.wrap(fileMsg.getFileByte());
 //                wrap.flip();
-                    fileChannel.write(wrap, fileMsg.getPosition());
-                    fileMsg.setPosition(fileMsg.getPosition() + fileMsg.getPreSize());
-                    fileMsg.setFileByte(null);
-                    fileMsg.setUploadSignal(UploadSignal.CONTINUE);
+                                fileChannel.write(wrap, fileMsg.getPosition());
+                                fileMsg.setPosition(fileMsg.getPosition() + fileMsg.getPreSize());
+                                fileMsg.setFileByte(null);
+                                fileMsg.setUploadSignal(signal);
+                                ctx.writeAndFlush(fileMsg);
+                            }
+                        } else {
+                            files.createNewFile();
+                            fileMsg.setPosition(0L);
+                            fileMsg.setFileByte(null);
+                            fileMsg.setUploadSignal(signal);
+                            ctx.writeAndFlush(fileMsg);
+                        }
+                    } else {
+                        File files = new File(Constant.fileReceivePath, fileMsg.getAliasName());
+                        if (files.exists()) {
+                            try (FileChannel fileChannel = (FileChannel.open(files.toPath(),
+                                    StandardOpenOption.READ))) {
+                                fileMsg.setPosition(fileChannel.size());
+                                fileMsg.setFileByte(null);
+                                fileMsg.setUploadSignal(signal);
+                                ctx.writeAndFlush(fileMsg);
+                            }
+                        } else {
+                            files.createNewFile();
+                            fileMsg.setPosition(0L);
+                            fileMsg.setFileByte(null);
+                            fileMsg.setUploadSignal(signal);
+                            ctx.writeAndFlush(fileMsg);
+                        }
+                    }
+                } catch (Exception e) {
+                    fileMsg.setUploadSignal(UploadSignal.STOP);
                 }
-            }else{
-                files.createNewFile();
-                fileMsg.setPosition(0L);
-                fileMsg.setFileByte(null);
-                fileMsg.setUploadSignal(UploadSignal.CONTINUE);
-            }
-        } else {
-            File files = new File(Constant.fileReceivePath, fileMsg.getAliasName());
-            if (files.exists()) {
-                try (FileChannel fileChannel = (FileChannel.open(files.toPath(),
-                        StandardOpenOption.READ))) {
-                    fileMsg.setPosition(fileChannel.size());
-                    fileMsg.setFileByte(null);
-                    fileMsg.setUploadSignal(UploadSignal.CONTINUE);
-                }
-            }else{
-                files.createNewFile();
-                fileMsg.setPosition(0L);
-                fileMsg.setFileByte(null);
-                fileMsg.setUploadSignal(UploadSignal.CONTINUE);
-            }
+            });
+        } catch (Exception e) {
+            fileMsg.setUploadSignal(UploadSignal.STOP);
         }
     }
 }

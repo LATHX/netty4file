@@ -16,7 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.StandardOpenOption;
 
 public class MsgInitInBound extends ChannelInboundHandlerAdapter {
-    private String filename = "123.pdf";
+    private String filename = "CentOS-7-x86_64-DVD-1810.iso";
 
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
@@ -27,7 +27,7 @@ public class MsgInitInBound extends ChannelInboundHandlerAdapter {
             fileMsg.setFileName(filename);
             fileMsg.setFilePath(file.getParent());
             fileMsg.setPosition(0L);
-            fileMsg.setPreSize(40960L);
+            fileMsg.setPreSize(50960L);
             fileMsg.setFileSize(new File(Constant.fileSendPath, filename).length());
             fileMsg.setUploadDate(System.currentTimeMillis());
             fileMsg.setUploadSignal(UploadSignal.CREATE);
