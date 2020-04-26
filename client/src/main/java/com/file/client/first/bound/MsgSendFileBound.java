@@ -1,4 +1,4 @@
-package com.file.client.bound;
+package com.file.client.first.bound;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
@@ -7,7 +7,6 @@ import com.file.global.UploadSignal;
 import com.file.modal.FileMsg;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
-import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.util.ReferenceCountUtil;
 
 import java.io.File;
@@ -19,7 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.StandardOpenOption;
 
 public class MsgSendFileBound extends ChannelInboundHandlerAdapter {
-    private String filename = "123.pdf";
+    private String filename = "CentOS-7-x86_64-DVD-1810.iso";
     private FileChannel fileChannel;
 
     @Override

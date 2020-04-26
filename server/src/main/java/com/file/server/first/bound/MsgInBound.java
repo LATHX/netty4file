@@ -1,11 +1,11 @@
-package com.file.server.bound;
+package com.file.server.first.bound;
 
 import com.file.global.Constant;
 import com.file.global.UploadSignal;
 import com.file.modal.FileMsg;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
-import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.util.ReferenceCountUtil;
 
 import java.io.File;
 import java.io.IOException;
@@ -52,7 +52,7 @@ public class MsgInBound extends ChannelInboundHandlerAdapter {
                         File files = new File(Constant.fileReceivePath, fileMsg.getAliasName());
                         if (files.exists()) {
                             this.fileChannel = (FileChannel.open(files.toPath(),
-                                    StandardOpenOption.WRITE, StandardOpenOption.APPEND, StandardOpenOption.READ));
+                                    StandardOpenOption.WRITE, StandardOpenOption.APPEND));
                         } else {
                             files.createNewFile();
                             fileMsg.setPosition(0L);
@@ -94,6 +94,7 @@ public class MsgInBound extends ChannelInboundHandlerAdapter {
                         fileMsg.setPosition(fileMsg.getPosition() + fileMsg.getPreSize());
                         fileMsg.setFileByte(null);
                         fileMsg.setUploadSignal(signal);
+                        ReferenceCountUtil.release(wrap);
                         ctx.writeAndFlush(fileMsg);
                     } else {
                         fileMsg.setPosition(fileChannel.size());

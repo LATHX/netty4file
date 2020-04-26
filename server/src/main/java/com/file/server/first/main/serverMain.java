@@ -1,7 +1,6 @@
-package com.file.server;
+package com.file.server.first.main;
 
 import com.file.code.MarshallingCodeCFactory;
-import com.file.server.bound.MsgInBound;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
@@ -21,7 +20,7 @@ public class serverMain {
                         protected void initChannel(SocketChannel socketChannel) throws Exception {
                             socketChannel.pipeline().addLast(MarshallingCodeCFactory.buildMarshallingDecoder());
                             socketChannel.pipeline().addLast(MarshallingCodeCFactory.buildMarshallingEncoder());
-                            socketChannel.pipeline().addLast(new MsgInBound());
+                            socketChannel.pipeline().addLast(new com.file.server.first.bound.MsgInBound());
                         }
                     });
             ChannelFuture future = serverBootstrap.bind(8765).sync();//绑定端口
